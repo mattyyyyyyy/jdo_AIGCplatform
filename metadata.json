@@ -1,0 +1,7 @@
+{
+  "name": "V4.0 AIGC platform",
+  "description": "A mesmerizing, interactive WebGL background shader using Three.js that creates fluid, colorful distortions with customizable parameters.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
