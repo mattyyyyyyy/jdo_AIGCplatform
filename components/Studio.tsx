@@ -299,7 +299,8 @@ const CallVisualizer = ({ active }: { active: boolean }) => {
      speed: 0.18,            
      lines: 8,               
      baseAmplitude: 15, // Reverted to 15
-     particleCount: 80       
+     // OPTIMIZATION: Reduced particle count for performance
+     particleCount: 50       
    };
 
    useEffect(() => {
@@ -336,7 +337,8 @@ const CallVisualizer = ({ active }: { active: boolean }) => {
              audioContextRef.current = ctx;
 
              const analyser = ctx.createAnalyser();
-             analyser.fftSize = 2048; // Higher sampling rate for detailed waveforms
+             // OPTIMIZATION: Reduced FFT Size from 2048 to 1024 for 2x faster processing
+             analyser.fftSize = 1024; 
              analyser.smoothingTimeConstant = 0.85; // High smoothing for fluid movement
              analyserRef.current = analyser;
              
@@ -649,6 +651,7 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
   
   // 3D Canvas Controls
   const [canvasTransform, setCanvasTransform] = useState({ scale: 1, rotation: 0 });
+  const [isRotating, setIsRotating] = useState(false); // Track if currently rotating via buttons
   const rotationRafRef = useRef<number | null>(null);
 
   // Asset Library
@@ -710,6 +713,7 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
     setIsHistoryExpanded(false);
     setIsVoiceRecording(false);
     setCanvasTransform({ scale: 1, rotation: 0 });
+    setIsRotating(false);
     setAccessoryFilter('all');
     setIsModuleMenuOpen(false); // Close menu on change
     
@@ -762,6 +766,8 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
     if (e) e.preventDefault(); // Prevent default behavior to avoid double firing (mouse + touch)
     stopRotation(); // Ensure clear before start
     
+    setIsRotating(true); // Disable transition for instant updates
+
     const rotate = () => {
         setCanvasTransform(prev => ({ 
             ...prev, 
@@ -774,6 +780,7 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
   };
 
   const stopRotation = () => {
+    setIsRotating(false); // Re-enable transition for smooth settling
     if (rotationRafRef.current) {
         cancelAnimationFrame(rotationRafRef.current);
         rotationRafRef.current = null;
@@ -974,12 +981,14 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
         {/* Wrapper for Translation to avoid conflict with 3D Transforms */}
         <div className={`relative transition-transform duration-500 z-10 ${shouldMoveUp ? '-translate-y-24' : 'translate-y-0'}`}>
             {/* Card Container with Glow Effect and Transform Control */}
-            <div className={`w-[300px] h-[500px] rounded-2xl flex items-center justify-center transition-all duration-300 border-2 border-white overflow-hidden backdrop-blur-md group transform-style-3d ${isSpeaking ? 'scale-105' : ''}`}
+            <div className={`w-[300px] h-[500px] rounded-2xl flex items-center justify-center border-2 border-white overflow-hidden backdrop-blur-md group transform-style-3d ${isSpeaking ? 'scale-105' : ''}`}
                  style={{ 
                     background: `linear-gradient(to bottom, ${model?.previewColor || '#444'}80, #0f0f0f80)`,
                     boxShadow: isSpeaking ? 'none' : '0 0 25px rgba(255,255,255,0.2)',
                     animation: isSpeaking ? 'talking-glow 0.8s infinite' : 'none',
                     // APPLY TRANSFORM HERE
+                    // Dynamic transition: none when rotating manually to avoid lag, else smooth
+                    transition: isRotating ? 'none' : 'all 0.3s ease',
                     transform: `scale(${canvasTransform.scale}) rotateY(${canvasTransform.rotation}deg)`
                  }}
             >

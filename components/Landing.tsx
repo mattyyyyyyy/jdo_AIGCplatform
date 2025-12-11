@@ -152,7 +152,8 @@ const FeatureCard: React.FC<FeatureCardProps> = memo(({
           ? undefined 
           : '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
       }}
-      className={`absolute w-64 h-96 cursor-pointer group origin-center will-change-transform rounded-[2rem] bg-white/5 backdrop-blur-xl border transition-all duration-500 overflow-hidden
+      // OPTIMIZATION: Reduced blur from xl to md/lg for performance
+      className={`absolute w-64 h-96 cursor-pointer group origin-center will-change-transform rounded-[2rem] bg-white/5 backdrop-blur-md border transition-all duration-500 overflow-hidden
         ${isHovered ? 'animate-border-pulse bg-white/10' : 'border-white/10'}
       `}
     >
@@ -296,7 +297,8 @@ export default function Landing({ onSelectModule, lang, toggleLanguage, t }: Lan
       transform = `translateX(${targetX}px) rotate(${targetRotate}deg) scale(0.85)`;
       zIndex = 40 - Math.abs(index - hoveredIndex); 
       opacity = 0.5;
-      filter = 'blur(3px)';
+      // OPTIMIZATION: Reduced Blur for inactive cards
+      filter = 'blur(2px)'; 
     }
 
     const transition = 'all 800ms cubic-bezier(0.2, 1, 0.2, 1)';
