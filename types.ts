@@ -41,3 +41,15 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
 }
+
+export interface BackgroundConfig {
+  singleColor: boolean;
+  color: string;
+  rotation: number;
+  autoRotate: number;
+  speed: number;
+  scale: number;
+  frequency: number;
+  warpStrength: number;
+  mouseInfluence: number;
+}

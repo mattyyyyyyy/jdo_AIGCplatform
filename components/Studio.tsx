@@ -258,8 +258,10 @@ class Particle {
     this.x = Math.random() * w;
     // Particles concentrated in the middle ripple area
     this.y = centerY + (Math.random() - 0.5) * 100;
-    this.vx = (Math.random() - 0.5) * 0.5; // Horizontal micro-movement
-    this.vy = (Math.random() - 1) * 0.8 - 0.2; // Slow rise
+    // Speed reduced by 50% (0.5 -> 0.25)
+    this.vx = (Math.random() - 0.5) * 0.25; 
+    // Vertical speed reduced by 50%
+    this.vy = ((Math.random() - 1) * 0.8 - 0.2) * 0.5; 
     this.life = 1.0; // Life value
     this.decay = Math.random() * 0.01 + 0.005; // Decay speed
     this.size = Math.random() * 2 + 0.5; // Size
@@ -281,7 +283,7 @@ class Particle {
 }
 
 // --- Reusable Real-time Visualizer for Calls (Friend AI Logic - Optimized) ---
-const CallVisualizer = ({ active }: { active: boolean }) => {
+const CallVisualizer = ({ active, scale = 1 }: { active: boolean, scale?: number }) => {
    const canvasRef = useRef<HTMLCanvasElement>(null);
    const audioContextRef = useRef<AudioContext | null>(null);
    const analyserRef = useRef<AnalyserNode | null>(null);
@@ -298,9 +300,10 @@ const CallVisualizer = ({ active }: { active: boolean }) => {
      color: '255, 255, 255', 
      speed: 0.18,            
      lines: 8,               
-     baseAmplitude: 15, // Reverted to 15
+     baseAmplitude: 15, 
      // OPTIMIZATION: Reduced particle count for performance
-     particleCount: 50       
+     // Reduced by 30%: 50 * 0.7 = 35
+     particleCount: 35       
    };
 
    useEffect(() => {
@@ -463,9 +466,16 @@ const CallVisualizer = ({ active }: { active: boolean }) => {
 
    if (!active) return null;
 
-   // Updated Container: Moved UP by 30px (-mt-[30px]) and set z-index to 30 to overlap card bottom
+   // Updated Container: Added dynamic margin based on scale to prevent overlap
+   const baseOffset = -30;
+   // Half height of card (250) * (scale - 1) gives the extra distance the bottom moves down
+   const dynamicOffset = Math.max(0, (scale - 1) * 250);
+
    return (
-    <div className="absolute top-full -mt-[30px] left-1/2 -translate-x-1/2 w-[500px] h-[200px] flex items-center justify-center pointer-events-none pb-0 z-30 animate-in fade-in zoom-in duration-500">
+    <div 
+        className="absolute top-full left-1/2 -translate-x-1/2 w-[500px] h-[200px] flex items-center justify-center pointer-events-none pb-0 z-30 animate-in fade-in zoom-in duration-500 transition-all duration-300 ease-out"
+        style={{ marginTop: `${baseOffset + dynamicOffset}px` }}
+    >
        <canvas 
           ref={canvasRef}
           width={500} 
@@ -483,6 +493,7 @@ const CallVisualizer = ({ active }: { active: boolean }) => {
 
 // Anime-style Assets with Compatibility Logic & SubCategories
 const ASSETS: Asset[] = [
+  // ... (Same assets as before)
   // Female Models
   { id: 'f1', name: 'Ganyu Style', type: 'base', category: 'female', previewColor: '#A5C9FF' },
   { id: 'f2', name: 'Keqing Style', type: 'base', category: 'female', previewColor: '#D4A5FF' },
@@ -663,6 +674,9 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Voice Recognition Ref
+  const recognitionRef = useRef<any>(null);
 
   // Map Feature Title from current module
   const featureTitle = useMemo(() => {
@@ -722,6 +736,40 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
     if (playbackTimerRef.current) clearTimeout(playbackTimerRef.current);
   }, [module, lang]);
 
+  // Voice Recognition Setup
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = lang === 'zh' ? 'zh-CN' : 'en-US';
+
+      recognitionRef.current.onresult = (event: any) => {
+        let finalTranscript = '';
+        // Only get final results to avoid jittery input updates
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+        
+        if (finalTranscript) {
+             setInputValue(prev => prev + finalTranscript);
+        }
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        setIsVoiceRecording(false);
+      };
+      
+      recognitionRef.current.onend = () => {
+         // Optionally restart if supposed to be recording, but for now allow manual stop
+      };
+    }
+  }, [lang]);
+
   useEffect(() => {
     if (isHistoryExpanded) {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -744,6 +792,7 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
         }
         if (generationTimerRef.current) clearTimeout(generationTimerRef.current);
         if (playbackTimerRef.current) clearTimeout(playbackTimerRef.current);
+        if (recognitionRef.current) recognitionRef.current.stop();
     };
   }, []);
 
@@ -846,28 +895,33 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
       };
       setMessages(prev => [...prev, responseMsg]);
       setIsTyping(false);
+      
+      // Trigger Visuals for Audio Reply
+      if (!isCallActive && !isPlaying) {
+          setIsPlaying(true);
+          // Simulate 4s audio clip
+          if (playbackTimerRef.current) clearTimeout(playbackTimerRef.current);
+          playbackTimerRef.current = setTimeout(() => {
+              setIsPlaying(false);
+          }, 4000);
+      }
+
     }, 1500);
   };
 
   // Voice Input Handlers
-  const finishVoiceRecording = () => {
-    setIsVoiceRecording(false);
-    // Simulate ASR result
-    const simulatedText = lang === 'zh' 
-      ? "你好，我想更换一下角色的配饰，请帮我推荐一个。" 
-      : "Hello, I would like to change the character accessories, please recommend one.";
-    setInputValue(prev => (prev ? prev + ' ' : '') + simulatedText);
-  };
-
   const toggleVoiceRecording = () => {
     if (isVoiceRecording) {
-      finishVoiceRecording();
+      recognitionRef.current?.stop();
+      setIsVoiceRecording(false);
     } else {
+      recognitionRef.current?.start();
       setIsVoiceRecording(true);
     }
   };
 
   const cancelVoiceRecording = () => {
+    recognitionRef.current?.stop();
     setIsVoiceRecording(false);
   };
 
@@ -981,7 +1035,7 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
         {/* Wrapper for Translation to avoid conflict with 3D Transforms */}
         <div className={`relative transition-transform duration-500 z-10 ${shouldMoveUp ? '-translate-y-24' : 'translate-y-0'}`}>
             {/* Card Container with Glow Effect and Transform Control */}
-            <div className={`w-[300px] h-[500px] rounded-2xl flex items-center justify-center border-2 border-white overflow-hidden backdrop-blur-md group transform-style-3d ${isSpeaking ? 'scale-105' : ''}`}
+            <div className={`w-[85vw] max-w-[300px] aspect-[3/5] max-h-[60vh] rounded-2xl flex items-center justify-center border-2 border-white overflow-hidden backdrop-blur-md group transform-style-3d ${isSpeaking ? 'scale-105' : ''}`}
                  style={{ 
                     background: `linear-gradient(to bottom, ${model?.previewColor || '#444'}80, #0f0f0f80)`,
                     boxShadow: isSpeaking ? 'none' : '0 0 25px rgba(255,255,255,0.2)',
@@ -1046,7 +1100,8 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
             </div>
 
             {/* Audio Visualizer (Attached to Moving Container, centered below) */}
-            <CallVisualizer active={isCallActive} />
+            {/* Pass scale to adjust overlap dynamics */}
+            <CallVisualizer active={isCallActive} scale={canvasTransform.scale} />
         </div>
         
         {/* Canvas Controls Overlay (Independent of Scale/Rotate) */}
@@ -1111,7 +1166,7 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
         <div className={`relative w-auto h-auto flex items-center justify-center transition-all duration-500 ${shouldMoveUp ? '-translate-y-24' : 'translate-y-0'} ${isSpeaking ? 'scale-105' : ''}`}>
            {currentAsset?.src ? (
              <div 
-                className="w-[300px] h-[500px] rounded-2xl overflow-hidden shadow-2xl relative z-10 border-2 border-white"
+                className="w-[85vw] max-w-[300px] aspect-[3/5] max-h-[60vh] rounded-2xl overflow-hidden shadow-2xl relative z-10 border-2 border-white"
                 style={{
                   boxShadow: isSpeaking ? 'none' : '0 0 25px rgba(255,255,255,0.2)',
                   animation: isSpeaking ? 'talking-glow 0.8s infinite' : 'none'
@@ -1125,7 +1180,7 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
              </div>
            ) : (
              <div 
-                className="w-[300px] h-[500px] rounded-2xl flex items-center justify-center transition-colors duration-500 relative z-10 shadow-2xl border-2 border-white overflow-hidden backdrop-blur-md" 
+                className="w-[85vw] max-w-[300px] aspect-[3/5] max-h-[60vh] rounded-2xl flex items-center justify-center transition-colors duration-500 relative z-10 shadow-2xl border-2 border-white overflow-hidden backdrop-blur-md" 
                 style={{ 
                     background: `linear-gradient(to bottom, ${currentAsset?.previewColor || '#444'}80, #0f0f0f80)`,
                     boxShadow: isSpeaking ? 'none' : '0 0 25px rgba(255,255,255,0.2)',
@@ -1336,13 +1391,13 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
          </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
+      {/* Main Layout - Modified for Mobile Responsiveness (flex-col on mobile) */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         
-        {/* --- Left Panel: Controls & Chat - Slide in from Left --- */}
-        <div className={`w-full md:w-80 border-r border-white/10 bg-black/50 backdrop-blur-xl flex flex-col z-20 relative shadow-xl transition-all duration-700 delay-200 ${isMounted ? 'translate-x-0 opacity-100' : '-translate-x-8 opacity-0'}`}>
+        {/* --- Left Panel: Controls & Chat --- */}
+        <div className={`w-full md:w-80 border-r border-white/10 bg-black/50 backdrop-blur-xl flex flex-col z-20 relative shadow-xl transition-all duration-700 delay-200 order-2 md:order-1 ${isMounted ? 'translate-x-0 opacity-100' : '-translate-x-8 opacity-0'} h-1/3 md:h-full`}>
            
            {/* 1. Header Section: Voice & Config */}
-           {/* Scrollable container for voice config to prevent overflow if list gets long */}
            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-5">
                {/* Language */}
                <VoiceDropdown 
@@ -1575,7 +1630,7 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
         </div>
 
         {/* --- Center: Canvas - Fade & Zoom In --- */}
-        <div className={`flex-1 relative bg-black/10 backdrop-blur-sm overflow-hidden flex items-center justify-center transition-all duration-1000 delay-300 ${isMounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}>
+        <div className={`flex-1 relative bg-black/10 backdrop-blur-sm overflow-hidden flex items-center justify-center transition-all duration-1000 delay-300 order-1 md:order-2 ${isMounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0'} min-h-[40vh]`}>
            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 pointer-events-none" />
            
            {module === '3d-avatar' ? render3dCanvas() : render2dCanvas()}
@@ -1599,7 +1654,7 @@ export default function Studio({ module, onChangeModule, lang, toggleLanguage, o
         </div>
 
         {/* --- Right: Asset Library - Slide in from Right --- */}
-        <div className={`w-full md:w-80 border-l border-white/10 bg-black/50 backdrop-blur-xl flex flex-col z-20 transition-all duration-700 delay-200 ${isMounted ? 'translate-x-0 opacity-100' : 'translate-x-8 opacity-0'}`}>
+        <div className={`w-full md:w-80 border-l border-white/10 bg-black/50 backdrop-blur-xl flex flex-col z-20 transition-all duration-700 delay-200 order-3 md:order-3 ${isMounted ? 'translate-x-0 opacity-100' : 'translate-x-8 opacity-0'} h-1/3 md:h-full`}>
            {/* Tabs */}
            <div className="flex items-center px-6 pt-6 mb-4 border-b border-white/10 overflow-x-auto no-scrollbar">
               {module === '3d-avatar' ? (

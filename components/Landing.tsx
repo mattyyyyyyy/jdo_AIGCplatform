@@ -133,7 +133,7 @@ const FeatureCard: React.FC<FeatureCardProps> = memo(({
           });
         }
       } else {
-        // Pause and reset when not hovered
+        // Pause and reset when not hovered to act as static frame
         videoRef.current.pause();
         videoRef.current.currentTime = 0; 
       }
@@ -159,10 +159,34 @@ const FeatureCard: React.FC<FeatureCardProps> = memo(({
     >
         {/* Content Container */}
         <div className="relative z-10 h-full w-full flex flex-col items-center justify-end pb-8 select-none">
-            {/* Visual Content (3D or Image) */}
-            {image ? (
+            {/* Visual Content (Video Preferred) */}
+            {video ? (
+               <div className="absolute inset-0">
+                  <video
+                    ref={videoRef}
+                    src={video}
+                    muted
+                    loop
+                    playsInline
+                    preload="auto"
+                    className="absolute inset-0 w-full h-full object-cover z-0 transition-all duration-700"
+                    style={{
+                      // Added opacity handling for static frame state
+                      opacity: isHovered ? 1 : 0.6,
+                      // Grayscale when not hovered, Color when hovered.
+                      // Lower brightness when static to match theme.
+                      filter: isHovered 
+                        ? 'grayscale(0%) brightness(1)' 
+                        : 'grayscale(100%) brightness(0.6)',
+                      transform: 'scale(1.01)' // Slight scale to avoid border gaps
+                    }}
+                  />
+                  {/* Dark gradient at bottom to ensure text readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 z-20 pointer-events-none" />
+               </div>
+            ) : image ? (
+              // Fallback to Image if no video
               <div className="absolute inset-0">
-                 {/* Static Image */}
                  <img 
                     src={image} 
                     alt={title}
@@ -170,31 +194,15 @@ const FeatureCard: React.FC<FeatureCardProps> = memo(({
                     className={`w-full h-full object-cover transition-all duration-700 absolute inset-0 z-0 ${isHovered ? 'animate-image-pulse' : ''}`}
                     style={{
                       opacity: isHovered ? 1 : 0.6,
-                      // When hovered, the CSS animation 'animate-image-pulse' takes over brightness/contrast
-                      // If there is a video, we rely on the video overlay to cover this
                       filter: isHovered 
                         ? 'none' 
                         : 'grayscale(100%) blur(0.5px)'
                     }}
                  />
-                 
-                 {/* Optional Video Overlay */}
-                 {video && (
-                   <video
-                      ref={videoRef}
-                      src={video}
-                      muted
-                      loop
-                      playsInline
-                      className={`absolute inset-0 w-full h-full object-cover z-10 transition-opacity duration-500 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-                   />
-                 )}
-
-                 {/* Dark gradient at bottom to ensure text readability */}
                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 z-20" />
               </div>
             ) : (
-              // Only render 3D canvas if no image (saves WebGL context)
+              // Only render 3D canvas if no media (saves WebGL context)
               <div className="absolute inset-0 top-0 bottom-16 flex items-center justify-center transition-all duration-500 group-hover:scale-105">
                 <GlassCard3D type={type3D} isHovered={isHovered} />
               </div>
@@ -324,36 +332,32 @@ export default function Landing({ onSelectModule, lang, toggleLanguage, t }: Lan
       id: '2d-audio', 
       type3D: 'mic', 
       title: t.features[0], 
-      image: "https://images.unsplash.com/photo-1765420263504-8b1f2f33a486?q=80&w=600&auto=format&fit=crop",
+      // image: REMOVED as per request to rely on video frame
       video: "https://res.cloudinary.com/djmxoehe9/video/upload/v1765437646/macphone_rbh44x.mp4"
     },
     { 
       id: '2d-chat', 
       type3D: 'camera', 
       title: t.features[1],
-      image: "https://github.com/mattyyyyyyy/picture2bed/blob/main/jimeng-2025-12-11-8086-%E7%BB%93%E5%90%88%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89%E3%80%81%E5%88%9B%E6%84%8F%E5%90%88%E6%88%90%E7%94%9F%E6%88%90%EF%BC%9A%E5%A2%A8%E9%BB%91%E7%9C%9F%E7%A9%BA%E5%AE%87%E5%AE%99%E4%B8%AD%EF%BC%8C%E7%82%B9%E7%82%B9%E6%98%9F%E5%85%89%EF%BC%8C%E4%B8%AD%E5%BF%83%E5%8C%BA%E5%9F%9F%E6%B5%AE%E7%8E%B0%E7%94%B1%E6%97%A0%E6%95%B0%E9%93%B6%E8%89%B2%E5%85%89%E7%82%B9....png?raw=true",
       video: "https://res.cloudinary.com/djmxoehe9/video/upload/v1765437646/shexiangji_cnko5j.mp4"
     },
     { 
       id: '2d-avatar', 
       type3D: 'ghost', 
       title: t.features[2],
-      image: "https://github.com/mattyyyyyyy/picture2bed/blob/main/jimeng-2025-12-11-6300-%E7%BB%93%E5%90%88%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89%E3%80%81%E5%88%9B%E6%84%8F%E5%90%88%E6%88%90%E7%94%9F%E6%88%90%EF%BC%9A%E5%A2%A8%E9%BB%91%E7%9C%9F%E7%A9%BA%E5%AE%87%E5%AE%99%E4%B8%AD%EF%BC%8C%E7%82%B9%E7%82%B9%E6%98%9F%E5%85%89%EF%BC%8C%E4%B8%AD%E5%BF%83%E5%8C%BA%E5%9F%9F%E6%B5%AE%E7%8E%B0%E7%94%B1%E6%97%A0%E6%95%B0%E9%93%B6%E8%89%B2%E5%85%89%E7%82%B9....png?raw=true",
       video: "https://res.cloudinary.com/djmxoehe9/video/upload/v1765437646/plant_pwucfi.mp4"
     },
     { 
       id: '3d-avatar', 
       type3D: 'human', 
       title: t.features[3],
-      image: "https://images.unsplash.com/photo-1765417696283-9e3522262c4a?q=80&w=600&auto=format&fit=crop",
-      // Updated video URL
       video: "https://res.cloudinary.com/djmxoehe9/video/upload/v1765437646/littlegirl_gzwaui.mp4"
     },
   ];
 
-  // Helper to get image for transition
-  const getSelectedImage = (moduleId: string) => {
-    return featureList.find(f => f.id === moduleId)?.image;
+  // Helper to get media for transition
+  const getSelectedMedia = (moduleId: string) => {
+    return featureList.find(f => f.id === moduleId);
   };
 
   // Construct phrases (Subtitle removed from loop)
@@ -464,12 +468,14 @@ export default function Landing({ onSelectModule, lang, toggleLanguage, t }: Lan
         >
            <div className={`w-full h-full flex flex-col items-center justify-center transition-all duration-300 relative ${isExpanding ? 'opacity-100' : 'opacity-100'}`}>
               
-              {/* Expanding Image */}
-              {getSelectedImage(animData.module) ? (
+              {/* Expanding Video/Image */}
+              {getSelectedMedia(animData.module)?.video ? (
                 <div className="absolute inset-0 w-full h-full">
-                  <img 
-                    src={getSelectedImage(animData.module)} 
-                    alt="transition"
+                  <video 
+                    src={getSelectedMedia(animData.module)?.video} 
+                    autoPlay
+                    muted
+                    loop
                     className="w-full h-full object-cover opacity-100" 
                   />
                   {/* Overlay to ensure seamless visual with card state */}
@@ -477,8 +483,18 @@ export default function Landing({ onSelectModule, lang, toggleLanguage, t }: Lan
                   {/* Additional dark overlay for studio background transition */}
                   <div className={`absolute inset-0 bg-black/60 transition-opacity duration-500 ${isExpanding ? 'opacity-100' : 'opacity-0'}`} />
                 </div>
+              ) : getSelectedMedia(animData.module)?.image ? (
+                <div className="absolute inset-0 w-full h-full">
+                  <img 
+                    src={getSelectedMedia(animData.module)?.image} 
+                    alt="transition"
+                    className="w-full h-full object-cover opacity-100" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80" />
+                  <div className={`absolute inset-0 bg-black/60 transition-opacity duration-500 ${isExpanding ? 'opacity-100' : 'opacity-0'}`} />
+                </div>
               ) : (
-                // Fallback if no image found (though all have images now)
+                // Fallback
                  <div className="p-6 rounded-3xl bg-white/10 mb-6 shadow-[0_0_30px_rgba(255,255,255,0.2)]">
                     {animData.module === '2d-audio' && <Mic size={64} className="text-white" />}
                     {animData.module === '2d-chat' && <MessageSquare size={64} className="text-white" />}

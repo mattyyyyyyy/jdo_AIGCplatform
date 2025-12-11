@@ -163,8 +163,16 @@ export default function App() {
 
       {/* 1. Global Background Layer */}
       <div className="absolute inset-0 z-0">
-        {/* Render ColorBends with default internal values for maximum performance */}
-        <ColorBends />
+        <ColorBends 
+          rotation={0}
+          autoRotate={0}
+          speed={0.2}
+          scale={1}
+          frequency={1}
+          warpStrength={1}
+          mouseInfluence={1}
+          colors={undefined} // Use default rainbow
+        />
         {/* Dark overlay for text readability - Pure black base with transparency */}
         <div className={`absolute inset-0 transition-colors duration-700 pointer-events-none ${currentModule ? 'bg-black/60' : 'bg-black/30'}`} />
       </div>
